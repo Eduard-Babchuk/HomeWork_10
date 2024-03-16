@@ -1,32 +1,36 @@
 const fs = require('fs')
-const readline = require('readline')
+const { Transform } = require('stream')
 
 const inputFilePath = 'ImRobot_In.txt'
 const outputFilePath = 'ImRobot_Out.txt'
 
-let wordCount = 0
-
-const reader = readline.createInterface({
-    input: fs.createReadStream(inputFilePath, { encoding: 'latin1' }),
-    output: process.stdout,
-    terminal: false
-})
-
+const reader = fs.createReadStream(inputFilePath, { encoding: 'latin1' })
 const writer = fs.createWriteStream(outputFilePath, { encoding: 'latin1' })
 
-reader.on('line', (line) => {
-    const words = line.split(' ')
-    const modifiedWords = words.map((word, index) => {
-        if ((index + 1) % 3 === 0) {
-            return word.toUpperCase()
-        } else {
-            return word
-        }
-    })
-    writer.write(modifiedWords.join(' ') + '\n')
+const modifyLettersStream = new Transform({
+    transform(chunk, encoding, callback) {
+        const modifiedChunk = chunk.toString('utf8').split('').map((letter, index) => {
+            if ((index + 1) % 3 === 0) {
+                return letter.toUpperCase()
+            } else {
+                return letter
+            }
+        }).join('')
+
+        callback(null, modifiedChunk)
+    }
 })
 
-reader.on('close', () => {
+reader.pipe(modifyLettersStream).pipe(writer)
+
+writer.on('finish', () => {
     console.log('File processing complete.')
-    writer.end()
+})
+
+reader.on('error', (err) => {
+    console.error('Error reading input file:', err)
+})
+
+writer.on('error', (err) => {
+    console.error('Error writing output file:', err)
 })
